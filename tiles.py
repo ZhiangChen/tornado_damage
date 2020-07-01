@@ -7,6 +7,8 @@ To process tornado damage tiles
 import os
 import numpy as np
 import pickle
+import sys
+sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
 import cv2
 import matplotlib.pyplot as plt
 
@@ -15,7 +17,7 @@ class Tiles(object):
         self.size = size
 
     def generateTiles(self, path, cls, threshold=0.75):
-        self.path = path.split('_')[0]
+        self.path = path  # path.split('_')[0]
         pickle_files = [f for f in os.listdir(path) if f.endswith('pickle')]
         assert len(pickle_files)
         for pickle_file in pickle_files:
@@ -32,11 +34,13 @@ class Tiles(object):
         scores = data['scores']
         masks = data['masks']
         image_name = data['image_name']
-        image_path = os.path.join(self.path, image_name.split('/')[-1])
+        image_path = os.path.join('../', image_name)
         assert os.path.isfile(image_path)
-        img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+        img = cv2.imread(image_path)
         img = img > 10
-        if np.sum(img) < 2000000:
+        img = np.all(img, axis=2)
+        h,w = img.shape
+        if np.sum(img) < h*w/4.0:
             return np.zeros(self.size).astype(np.uint8)
 
         if len(boxes) == 0:
@@ -61,6 +65,7 @@ class Tiles(object):
                 else:
                     if len(boxes) == 0:
                         return np.zeros(self.size).astype(np.uint8)
+                    print(image_path)
                     tile = masks.squeeze(axis=1)
                     tile = tile.max(axis=0)
                     for box in boxes:
@@ -96,11 +101,12 @@ class Tiles(object):
         :param scale: the actual tile = scale * tile
         :return:
         """
-        tile_files = os.listdir(path)
+        tile_files = [i for i in os.listdir(path) if i.endswith('.png')]
         X = []
         Y = []
         for tile_file in tile_files:
-            x, y = tile_file.split('.')[0].split('_')
+            #print(tile_file)
+            x, y = tile_file.split('.')[0].split('_')[-2: ]
             X.append(int(x))
             Y.append(int(y))
         width = max(X)/scale + step/scale
@@ -112,7 +118,7 @@ class Tiles(object):
             map = np.zeros((int(height), int(width),  3))
 
         for tile_file in tile_files:
-            x, y = tile_file.split('.')[0].split('_')
+            x, y = tile_file.split('.')[0].split('_')[-2: ]
             x, y = int(int(x)/scale), int(int(y)/scale)
             file_path = os.path.join(path, tile_file)
             if type == "grayscale":
